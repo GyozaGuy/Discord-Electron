@@ -23,8 +23,7 @@ app.on('window-all-closed', function() {
 
 var shouldQuit = app.makeSingleInstance(function(commandLine, workingDirectory) {
   if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
+    showAndCenter(mainWindow);
   }
   return true;
 });
@@ -35,31 +34,17 @@ if (shouldQuit) {
 }
 
 app.on('ready', function() {
-  var electronScreen = electron.screen;
-  var size = electronScreen.getPrimaryDisplay().workAreaSize;
-
   sysTray = new Tray(AppIcon);
   var contextMenu = Menu.buildFromTemplate([
-    { label: 'Show', click: function() { mainWindow.show(); mainWindow.focus(); } },
+    { label: 'Show', click: function() { showAndCenter(mainWindow); } },
     { label: 'Quit', click: function() { app.quit(); } }
   ]);
   sysTray.setToolTip(AppName);
   sysTray.setContextMenu(contextMenu);
 
-  mainWindow = new BrowserWindow({ icon: AppIcon, width: width, height: height, x: Math.round(size['width'] / 2 - width / 2), y: Math.round(size['height'] / 2 - height / 2) });
+  mainWindow = new BrowserWindow({ icon: AppIcon, width: width, height: height });
+  center(mainWindow);
   mainWindow.loadURL('file://' + __dirname + '/index.html');
-
-  // NOTE: For links not in a webview?
-  // mainWindow.webContents.on('new-window', function(e, url) {
-  //   e.preventDefault();
-  //   require('shell').openExternal(url);
-  // });
-
-  // Open the DevTools
-  mainWindow.webContents.openDevTools();
-  mainWindow.webContents.closeDevTools();
-  // TODO: Fix the above super awful hacky method to get the page to load
-  // NOTE: This seems to only be a problem with Skype so far
 
   mainWindow.on('closed', function() {
     mainWindow = null;
@@ -69,3 +54,17 @@ app.on('ready', function() {
     mainWindow.hide();
   });
 });
+
+function showAndCenter(win) {
+  win.show();
+  center(win);
+  win.focus();
+}
+
+function center(win) {
+  var electronScreen = electron.screen;
+  var size = electronScreen.getPrimaryDisplay().workAreaSize;
+  var x = Math.round(size['width'] / 2 - width / 2);
+  var y = Math.round(size['height'] / 2 - height / 2);
+  win.setPosition(x, y);
+}
