@@ -1,6 +1,8 @@
 const electron = require('electron');
 const app = electron.app;  // Module to control application life.
 const BrowserWindow = electron.BrowserWindow;  // Module to create native browser window.
+const Menu = require('menu');
+const Tray = require('tray');
 
 // Report crashes to our server.
 electron.crashReporter.start();
@@ -18,6 +20,12 @@ app.on('window-all-closed', function() {
   }
 });
 
+// Application icon
+var appIcon = __dirname + '/images/discord.png';
+
+// Prepare the system tray
+var sysTray = null;
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', function() {
@@ -29,8 +37,17 @@ app.on('ready', function() {
   var electronScreen = electron.screen;
   var size = electronScreen.getPrimaryDisplay().workAreaSize;
 
+  // Create tray menu
+  sysTray = new Tray(appIcon);
+  var contextMenu = Menu.buildFromTemplate([
+    { label: 'Show' },
+    { label: 'Quit' }
+  ]);
+  sysTray.setToolTip('Discord');
+  sysTray.setContextMenu(contextMenu);
+
   // Create the browser window.
-  mainWindow = new BrowserWindow({width: width, height: height, x: Math.round(size['width'] / 2 - width / 2), y: Math.round(size['height'] / 2 - height / 2)});
+  mainWindow = new BrowserWindow({ icon: appIcon, width: width, height: height, x: Math.round(size['width'] / 2 - width / 2), y: Math.round(size['height'] / 2 - height / 2) });
 
   // and load the index.html of the app.
   mainWindow.loadURL('file://' + __dirname + '/index.html');
