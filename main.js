@@ -1,27 +1,74 @@
-const AppName = 'Discord';
-const height = 750;
-const width = 1200;
+'use strict';
 
-const electron = require('electron');
-const Tray = require('tray');
-const Menu = require('menu');
-const app = electron.app;
-const BrowserWindow = electron.BrowserWindow;
-const AppIcon = __dirname + '/images/app.png';
+const HEIGHT = 750;
+const WIDTH = 1200;
 
-// Report crashes to our server.
-electron.crashReporter.start();
+const ELECTRON = require('electron');
+const PATH = require('path');
+const MENU = ELECTRON.Menu;
+const TRAY = ELECTRON.Tray;
+const APP = ELECTRON.app;
+const APPNAME = APP.getName();
+const BROWSERWINDOW = ELECTRON.BrowserWindow;
+const APPICON = PATH.join(__dirname, 'images', 'app.png');
+const APPICON_EVENT = PATH.join(__dirname, 'images', 'app_event.png');
+const IPC = ELECTRON.ipcMain;
 
-var mainWindow = null;
-var sysTray = null;
+ELECTRON.crashReporter.start();
 
-app.on('window-all-closed', function() {
+var mainWindow;
+var sysTray;
+var isQuitting = false;
+
+function createMainWindow() {
+  const WIN = new ELECTRON.BrowserWindow({
+    title: APPNAME,
+    show: false,
+    height: HEIGHT,
+    width: WIDTH,
+    icon: APPICON,
+    webPreferences: {
+      nodeIntegration: false, // fails without this because of CommonJS script detection
+      preload: PATH.join(__dirname, 'js', 'browser.js')
+    }
+  });
+
+  WIN.loadURL('https://discordapp.com/channels/@me');
+
+  WIN.on('close', e => {
+    if (!isQuitting) {
+      e.preventDefault();
+      WIN.hide();
+    }
+  });
+
+  return WIN;
+}
+
+function showAndCenter(win) {
+  if (!win.isFocused()) {
+    sysTray.setImage(APPICON);
+  }
+  center(win);
+  win.show();
+  win.focus();
+}
+
+function center(win) {
+  var electronScreen = ELECTRON.screen;
+  var size = electronScreen.getPrimaryDisplay().workAreaSize;
+  var x = Math.round(size['width'] / 2 - WIDTH / 2);
+  var y = Math.round(size['height'] / 2 - HEIGHT / 2);
+  win.setPosition(x, y);
+}
+
+APP.on('window-all-closed', () => {
   if (process.platform != 'darwin') {
-    app.quit();
+    APP.quit();
   }
 });
 
-var shouldQuit = app.makeSingleInstance(function(commandLine, workingDirectory) {
+var shouldQuit = APP.makeSingleInstance(function(commandLine, workingDirectory) {
   if (mainWindow) {
     showAndCenter(mainWindow);
   }
@@ -29,42 +76,45 @@ var shouldQuit = app.makeSingleInstance(function(commandLine, workingDirectory) 
 });
 
 if (shouldQuit) {
-  app.quit();
+  APP.quit();
   return;
 }
 
-app.on('ready', function() {
-  sysTray = new Tray(AppIcon);
-  var contextMenu = Menu.buildFromTemplate([
+APP.on('ready', () => {
+  sysTray = new TRAY(APPICON);
+  var contextMenu = MENU.buildFromTemplate([
     { label: 'Show', click: function() { showAndCenter(mainWindow); } },
-    { label: 'Quit', click: function() { app.quit(); } }
+    { label: 'Quit', click: function() { APP.quit(); } }
   ]);
-  sysTray.setToolTip(AppName);
+  sysTray.setToolTip(APPNAME);
   sysTray.setContextMenu(contextMenu);
 
-  mainWindow = new BrowserWindow({ icon: AppIcon, width: width, height: height });
-  center(mainWindow);
-  mainWindow.loadURL('file://' + __dirname + '/index.html');
+  mainWindow = createMainWindow();
 
-  mainWindow.on('closed', function() {
-    mainWindow = null;
+  const PAGE = mainWindow.webContents;
+
+  PAGE.on('dom-ready', () => {
+    showAndCenter(mainWindow);
   });
 
-  mainWindow.on('minimize', function() {
-    mainWindow.hide();
+  PAGE.on('new-window', (e, url) => {
+    e.preventDefault();
+    ELECTRON.shell.openExternal(url);
   });
 });
 
-function showAndCenter(win) {
-  win.show();
-  center(win);
-  win.focus();
-}
+APP.on('activate', () => {
+  showAndCenter(mainWindow);
+});
 
-function center(win) {
-  var electronScreen = electron.screen;
-  var size = electronScreen.getPrimaryDisplay().workAreaSize;
-  var x = Math.round(size['width'] / 2 - width / 2);
-  var y = Math.round(size['height'] / 2 - height / 2);
-  win.setPosition(x, y);
-}
+APP.on('before-quit', () => {
+  isQuitting = true;
+});
+
+IPC.on('change-icon', () => {
+  sysTray.setImage(APPICON_EVENT);
+});
+
+IPC.on('notification-click', () => {
+  showAndCenter(mainWindow);
+});
